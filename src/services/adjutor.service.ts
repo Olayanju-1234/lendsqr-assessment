@@ -21,7 +21,8 @@ export class AdjutorService {
       );
 
       return (
-        response.data?.status === "success" && response.data?.data != null
+        response.data?.status === "success" &&
+        response.data?.data?.karma_identity != null
       );
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
