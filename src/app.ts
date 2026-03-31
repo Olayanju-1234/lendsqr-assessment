@@ -1,4 +1,7 @@
 import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./modules/auth/auth.routes";
 import walletRoutes from "./modules/wallet/wallet.routes";
 import transactionRoutes from "./modules/transaction/transaction.routes";
@@ -6,8 +9,22 @@ import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
 
+// Security middleware
+app.use(helmet());
+app.use(cors());
+
+// Rate limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { status: "error", message: "Too many requests, please try again later" },
+});
+app.use(globalLimiter);
+
 // Body parsing middleware
-app.use(express.json());
+app.use(express.json({ limit: "10kb" }));
 
 // Health check endpoint
 app.get("/api/health", (_req, res) => {

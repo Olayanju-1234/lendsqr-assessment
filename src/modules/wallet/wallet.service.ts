@@ -20,7 +20,7 @@ export class WalletService {
       }
 
       const balanceBefore = Number(wallet.balance);
-      const balanceAfter = balanceBefore + amount;
+      const balanceAfter = parseFloat((balanceBefore + amount).toFixed(2));
 
       await WalletModel.updateBalance(userId, balanceAfter, trx);
 
@@ -88,8 +88,8 @@ export class WalletService {
       }
 
       const recipientBalanceBefore = Number(recipientWallet.balance);
-      const senderBalanceAfter = senderBalanceBefore - amount;
-      const recipientBalanceAfter = recipientBalanceBefore + amount;
+      const senderBalanceAfter = parseFloat((senderBalanceBefore - amount).toFixed(2));
+      const recipientBalanceAfter = parseFloat((recipientBalanceBefore + amount).toFixed(2));
 
       // Update both wallet balances
       await WalletModel.updateBalance(senderId, senderBalanceAfter, trx);
@@ -110,7 +110,7 @@ export class WalletService {
             balance_after: senderBalanceAfter,
             reference,
             counterparty_id: recipient.id,
-            description: `Transfer to ${recipientEmail}`,
+            description: `Transfer to user #${recipient.id}`,
           },
           {
             user_id: recipient.id,
@@ -149,7 +149,7 @@ export class WalletService {
         throw new HttpError(400, "Insufficient funds");
       }
 
-      const balanceAfter = balanceBefore - amount;
+      const balanceAfter = parseFloat((balanceBefore - amount).toFixed(2));
 
       await WalletModel.updateBalance(userId, balanceAfter, trx);
 
