@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; line-height: 1.6; color: #333; }
+h1 { color: #1a1a1a; border-bottom: 2px solid #333; padding-bottom: 10px; }
+h2 { color: #2a2a2a; margin-top: 30px; }
+h3 { color: #444; }
+table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+th { background-color: #f5f5f5; font-weight: bold; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
+.meta { color: #666; font-size: 14px; margin-bottom: 30px; }
+</style>
+</head>
+<body>
+
+<h1>Demo Credit Wallet Service &mdash; Technical Approach Document</h1>
+
+<div class="meta">
+<strong>Author:</strong> Joseph Olayanju<br>
+<strong>Date:</strong> April 2026<br>
+<strong>GitHub Repository:</strong> <a href="https://github.com/Olayanju-1234/lendsqr-assessment">https://github.com/Olayanju-1234/lendsqr-assessment</a><br>
+<strong>Deployed API:</strong> <a href="https://olayanju-joseph-lendsqr-be-test.up.railway.app">https://olayanju-joseph-lendsqr-be-test.up.railway.app</a><br>
+<strong>Health Check:</strong> <a href="https://olayanju-joseph-lendsqr-be-test.up.railway.app/api/health">https://olayanju-joseph-lendsqr-be-test.up.railway.app/api/health</a>
+</div>
+
+<h2>1. Overview</h2>
+<p>Demo Credit is a wallet service MVP for a mobile lending application. It enables users to create accounts, fund their wallets, transfer money to other users, and withdraw funds. The system integrates with Lendsqr's Adjutor Karma API to prevent blacklisted users from being onboarded.</p>
+
+<h2>2. Tech Stack</h2>
+<table>
+<tr><th>Layer</th><th>Technology</th><th>Rationale</th></tr>
+<tr><td>Runtime</td><td>Node.js (LTS) + TypeScript</td><td>Type safety, better IDE support, catches errors at compile time</td></tr>
+<tr><td>Framework</td><td>Express.js</td><td>Lightweight, widely adopted, assessment-specified</td></tr>
+<tr><td>ORM</td><td>KnexJS</td><td>Assessment requirement; provides query builder with transaction support and migrations</td></tr>
+<tr><td>Database</td><td>MySQL</td><td>Assessment requirement; ACID-compliant, strong for financial data</td></tr>
+<tr><td>Auth</td><td>JWT</td><td>Stateless faux authentication as specified</td></tr>
+<tr><td>Validation</td><td>Joi</td><td>Schema-based validation with descriptive error messages</td></tr>
+<tr><td>Testing</td><td>Jest + ts-jest</td><td>Industry standard for Node.js, excellent mocking support</td></tr>
+</table>
+
+<h2>3. Architecture</h2>
+<p>I followed a 4-layer architecture pattern:</p>
+<p><strong>Routes &rarr; Controllers &rarr; Services &rarr; Models</strong></p>
+<ul>
+<li><strong>Routes</strong> map HTTP paths to controllers and apply validation middleware</li>
+<li><strong>Controllers</strong> extract request data and format responses &mdash; they contain zero business logic</li>
+<li><strong>Services</strong> handle all business logic, transaction scoping, and validation rules</li>
+<li><strong>Models</strong> are thin data access wrappers around KnexJS queries</li>
+</ul>
+<p>This separation ensures each layer has a single responsibility. Dependencies flow inward &mdash; services never import Express, controllers never touch the database directly. This makes the codebase testable, maintainable, and easy to reason about.</p>
+
+<h2>4. Key Design Decisions</h2>
+
+<h3>4.1 Double-Entry Bookkeeping for Transfers</h3>
+<p>Every transfer creates two transaction records: a debit for the sender and a credit for the recipient. Both records share the same UUID reference, linking them together. This is standard in financial systems because it ensures balances always reconcile and provides a complete audit trail from both perspectives.</p>
+
+<h3>4.2 Pessimistic Locking with Deadlock Prevention</h3>
+<p>All wallet mutations use <code>SELECT ... FOR UPDATE</code> inside MySQL transactions to prevent race conditions. For transfers involving two wallets, I lock them in ascending <code>user_id</code> order to prevent deadlocks. This consistent lock ordering guarantees that two simultaneous transfers between the same users will never deadlock each other.</p>
+
+<h3>4.3 Idempotency Key Support</h3>
+<p>All wallet operations (fund, transfer, withdraw) accept an optional <code>Idempotency-Key</code> header. If a client retries a request with the same key, the system returns the cached result instead of processing a duplicate transaction. This prevents double-charges caused by network retries or client-side failures &mdash; a critical requirement for any financial API.</p>
+
+<h3>4.4 Fail-Open Strategy for Adjutor API</h3>
+<p>If the Adjutor Karma API is unavailable or times out (5-second limit), registration proceeds rather than blocking all signups. This is a deliberate trade-off: a brief API outage should not prevent legitimate users from onboarding. The risk of a blacklisted user slipping through during downtime is acceptable compared to blocking all registrations entirely.</p>
+
+<h3>4.5 Atomic User + Wallet Creation</h3>
+<p>User and wallet records are created in a single database transaction during registration. This prevents orphaned users (users without wallets) that would cause errors during wallet operations.</p>
+
+<h3>4.6 Precision-Safe Financial Arithmetic</h3>
+<p>All money fields use MySQL's <code>DECIMAL(15,2)</code> type. JavaScript arithmetic results are rounded to 2 decimal places using <code>parseFloat(result.toFixed(2))</code> to prevent floating-point precision errors that could cause balance drift over time.</p>
+
+<h3>4.7 Immutable Audit Trail</h3>
+<p>Transaction records are append-only. Each record captures <code>balance_before</code> and <code>balance_after</code>, enabling full reconstruction of any wallet's history. No transaction record is ever updated or deleted.</p>
+
+<h2>5. Security Measures</h2>
+<ul>
+<li><strong>Helmet</strong> for HTTP security headers (X-Content-Type-Options, X-Frame-Options, etc.)</li>
+<li><strong>Rate limiting</strong> &mdash; 100 requests per 15 minutes globally, 20 per 15 minutes on auth endpoints to prevent brute-force attacks</li>
+<li><strong>CORS</strong> middleware for cross-origin request handling</li>
+<li><strong>Bcrypt</strong> password hashing with 10 salt rounds</li>
+<li><strong>Joi validation</strong> on all request inputs with strict schemas (positive amounts, max 2 decimal places, upper limits)</li>
+<li><strong>KnexJS parameterized queries</strong> &mdash; prevents SQL injection</li>
+<li><strong>JSON payload size limit</strong> (10KB) to prevent large payload attacks</li>
+<li><strong>Passwords never returned</strong> in any API response</li>
+<li><strong>Morgan</strong> request logging for monitoring and debugging</li>
+</ul>
+
+<h2>6. Database Design</h2>
+<p>Three normalized tables with proper referential integrity:</p>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Key Constraints</th></tr>
+<tr><td><code>users</code></td><td>Stores credentials and profile data</td><td>Email is UNIQUE</td></tr>
+<tr><td><code>wallets</code></td><td>One wallet per user</td><td>user_id is UNIQUE FK to users</td></tr>
+<tr><td><code>transactions</code></td><td>Immutable ledger of all operations</td><td>FK to users, indexed on user_id and created_at</td></tr>
+</table>
+<p>The E-R diagram (created at dbdesigner.net) is included in the repository README.</p>
+
+<h2>7. API Endpoints</h2>
+<table>
+<tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+<tr><td>POST</td><td>/api/auth/register</td><td>No</td><td>Create account (with Karma blacklist check)</td></tr>
+<tr><td>POST</td><td>/api/auth/login</td><td>No</td><td>Get JWT token</td></tr>
+<tr><td>POST</td><td>/api/wallet/fund</td><td>Yes</td><td>Deposit into wallet</td></tr>
+<tr><td>POST</td><td>/api/wallet/transfer</td><td>Yes</td><td>Transfer to another user</td></tr>
+<tr><td>POST</td><td>/api/wallet/withdraw</td><td>Yes</td><td>Withdraw from wallet</td></tr>
+<tr><td>GET</td><td>/api/wallet/balance</td><td>Yes</td><td>Check current balance</td></tr>
+<tr><td>GET</td><td>/api/transactions</td><td>Yes</td><td>Paginated transaction history</td></tr>
+<tr><td>GET</td><td>/api/health</td><td>No</td><td>Health check</td></tr>
+</table>
+
+<h2>8. Testing Strategy</h2>
+<p>24 unit tests across 3 test suites covering both positive and negative scenarios:</p>
+<ul>
+<li><strong>Auth Service (7 tests):</strong> Registration (valid, blacklisted user, duplicate email, API down), Login (valid, wrong password, non-existent email)</li>
+<li><strong>Wallet Service (14 tests):</strong> Fund, transfer (with dual-entry verification and lock ordering), withdraw, balance, idempotency (cached result, new key) &mdash; plus edge cases for insufficient funds, self-transfer, missing wallets</li>
+<li><strong>Transaction Service (3 tests):</strong> Paginated history, page calculation, empty results</li>
+</ul>
+<p>All tests mock the database layer, so no MySQL instance is required to run the test suite.</p>
+
+<h2>9. What I Would Improve With More Time</h2>
+<ul>
+<li>Integration tests with a real MySQL database for end-to-end validation</li>
+<li>Structured logging with Winston or Pino instead of console</li>
+<li>API versioning (e.g., /api/v1/) for backward compatibility</li>
+<li>Webhook notifications for real-time transaction alerts</li>
+<li>Database connection health check on server startup</li>
+</ul>
+
+</body>
+</html>
