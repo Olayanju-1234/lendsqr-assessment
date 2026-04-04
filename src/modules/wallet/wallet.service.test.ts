@@ -308,4 +308,39 @@ describe("WalletService", () => {
       });
     });
   });
+
+  describe("idempotency", () => {
+    it("should return cached result when idempotency key matches existing transaction", async () => {
+      (TransactionModel.findByReference as jest.Mock).mockResolvedValue({
+        balance_after: "700.00",
+        reference: "existing-key",
+      });
+
+      const result = await walletService.fund(1, 200, "existing-key");
+
+      expect(result).toEqual({
+        balance: 700,
+        reference: "existing-key",
+      });
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it("should process normally when idempotency key is new", async () => {
+      (TransactionModel.findByReference as jest.Mock).mockResolvedValue(undefined);
+      (WalletModel.findByUserIdForUpdate as jest.Mock).mockResolvedValue({
+        user_id: 1,
+        balance: "500.00",
+      });
+      (WalletModel.updateBalance as jest.Mock).mockResolvedValue(undefined);
+      (TransactionModel.create as jest.Mock).mockResolvedValue(1);
+
+      const result = await walletService.fund(1, 200, "new-key");
+
+      expect(result).toEqual({
+        balance: 700,
+        reference: "new-key",
+      });
+      expect(db.transaction).toHaveBeenCalled();
+    });
+  });
 });

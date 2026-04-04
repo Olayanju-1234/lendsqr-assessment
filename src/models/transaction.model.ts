@@ -31,6 +31,15 @@ export class TransactionModel {
     await trx(this.tableName).insert(records);
   }
 
+  static async findByReference(
+    reference: string,
+    userId: number
+  ): Promise<Transaction | undefined> {
+    return db(this.tableName)
+      .where({ reference, user_id: userId })
+      .first();
+  }
+
   static async findByUserId(
     userId: number,
     page: number,

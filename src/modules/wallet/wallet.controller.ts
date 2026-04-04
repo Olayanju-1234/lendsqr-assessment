@@ -17,7 +17,8 @@ export class WalletController {
     try {
       const userId = req.user!.id;
       const { amount } = req.body;
-      const result = await this.walletService.fund(userId, amount);
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
+      const result = await this.walletService.fund(userId, amount, idempotencyKey);
       res.status(200).json(successResponse(result, "Account funded successfully"));
     } catch (error) {
       next(error);
@@ -32,10 +33,12 @@ export class WalletController {
     try {
       const userId = req.user!.id;
       const { recipient_email, amount } = req.body;
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
       const result = await this.walletService.transfer(
         userId,
         recipient_email,
-        amount
+        amount,
+        idempotencyKey
       );
       res.status(200).json(successResponse(result, "Transfer successful"));
     } catch (error) {
@@ -51,7 +54,8 @@ export class WalletController {
     try {
       const userId = req.user!.id;
       const { amount } = req.body;
-      const result = await this.walletService.withdraw(userId, amount);
+      const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
+      const result = await this.walletService.withdraw(userId, amount, idempotencyKey);
       res.status(200).json(successResponse(result, "Withdrawal successful"));
     } catch (error) {
       next(error);

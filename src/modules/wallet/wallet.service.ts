@@ -9,9 +9,17 @@ import { HttpError } from "../../utils/http-error";
 export class WalletService {
   async fund(
     userId: number,
-    amount: number
+    amount: number,
+    idempotencyKey?: string
   ): Promise<{ balance: number; reference: string }> {
-    const reference = uuidv4();
+    const reference = idempotencyKey || uuidv4();
+
+    if (idempotencyKey) {
+      const existing = await TransactionModel.findByReference(idempotencyKey, userId);
+      if (existing) {
+        return { balance: Number(existing.balance_after), reference };
+      }
+    }
 
     const newBalance = await db.transaction(async (trx) => {
       const wallet = await WalletModel.findByUserIdForUpdate(userId, trx);
@@ -46,7 +54,8 @@ export class WalletService {
   async transfer(
     senderId: number,
     recipientEmail: string,
-    amount: number
+    amount: number,
+    idempotencyKey?: string
   ): Promise<{ balance: number; reference: string }> {
     const recipient = await UserModel.findByEmail(recipientEmail);
     if (!recipient) {
@@ -57,7 +66,14 @@ export class WalletService {
       throw new HttpError(400, "Cannot transfer to yourself");
     }
 
-    const reference = uuidv4();
+    const reference = idempotencyKey || uuidv4();
+
+    if (idempotencyKey) {
+      const existing = await TransactionModel.findByReference(idempotencyKey, senderId);
+      if (existing) {
+        return { balance: Number(existing.balance_after), reference };
+      }
+    }
 
     const senderNewBalance = await db.transaction(async (trx) => {
       // Lock wallets in ascending user_id order to prevent deadlocks
@@ -134,9 +150,17 @@ export class WalletService {
 
   async withdraw(
     userId: number,
-    amount: number
+    amount: number,
+    idempotencyKey?: string
   ): Promise<{ balance: number; reference: string }> {
-    const reference = uuidv4();
+    const reference = idempotencyKey || uuidv4();
+
+    if (idempotencyKey) {
+      const existing = await TransactionModel.findByReference(idempotencyKey, userId);
+      if (existing) {
+        return { balance: Number(existing.balance_after), reference };
+      }
+    }
 
     const newBalance = await db.transaction(async (trx) => {
       const wallet = await WalletModel.findByUserIdForUpdate(userId, trx);
