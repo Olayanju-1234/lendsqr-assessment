@@ -20,8 +20,6 @@ export class AdjutorService {
         }
       );
 
-      // console.log("response from adjuctor here", response)
-
       return (
         response.data?.status === "success" &&
         response.data?.data?.karma_identity != null

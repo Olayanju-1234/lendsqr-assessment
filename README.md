@@ -23,6 +23,8 @@ A wallet service MVP for Lendsqr's Demo Credit mobile lending app. Borrowers use
 
 ## E-R Diagram
 
+![E-R Diagram](docs/er-diagram.png)
+
 ```mermaid
 erDiagram
     USERS ||--|| WALLETS : "has one"
@@ -438,7 +440,7 @@ GET /api/transactions?page=1&limit=20
         "balance_after": 4000.00,
         "reference": "550e8400-e29b-41d4-a716-446655440001",
         "counterparty_id": 2,
-        "description": "Transfer to jane@example.com",
+        "description": "Transfer to user #2",
         "created_at": "2026-03-30T12:03:00.000Z"
       }
     ],
