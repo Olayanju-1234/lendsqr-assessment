@@ -41,7 +41,7 @@ export async function up(knex: Knex): Promise<void> {
     table.decimal("amount", 15, 2).notNullable();
     table.decimal("balance_before", 15, 2).notNullable();
     table.decimal("balance_after", 15, 2).notNullable();
-    table.string("reference", 36).notNullable().unique();
+    table.string("reference", 36).notNullable().index();
     table
       .integer("counterparty_id")
       .unsigned()
