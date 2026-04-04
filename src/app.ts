@@ -30,6 +30,15 @@ app.use(morgan("dev"));
 // Body parsing middleware
 app.use(express.json({ limit: "10kb" }));
 
+// Root endpoint
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Demo Credit Wallet Service API",
+    documentation: "/api/health",
+  });
+});
+
 // Health check endpoint
 app.get("/api/health", (_req, res) => {
   res.status(200).json({
