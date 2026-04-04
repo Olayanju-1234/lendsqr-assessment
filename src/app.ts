@@ -1,6 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./modules/auth/auth.routes";
 import walletRoutes from "./modules/wallet/wallet.routes";
@@ -22,6 +23,9 @@ const globalLimiter = rateLimit({
   message: { status: "error", message: "Too many requests, please try again later" },
 });
 app.use(globalLimiter);
+
+// Request logging
+app.use(morgan("dev"));
 
 // Body parsing middleware
 app.use(express.json({ limit: "10kb" }));
