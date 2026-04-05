@@ -10,6 +10,9 @@ import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
 
+// Trust proxy (required for Railway/Render behind reverse proxy)
+app.set("trust proxy", 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors());
